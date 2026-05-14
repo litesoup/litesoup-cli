@@ -1,0 +1,193 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+LITESOUP_LIB=/usr/lib/litesoup
+
+# Auto-escalate to root
+if [[ $EUID -ne 0 ]]; then
+  exec sudo "$0" "$@"
+fi
+
+_version() {
+  local ver_file
+  ver_file="$(dirname "$(readlink -f "$0")")/VERSION"
+  echo "litesoup-cli $(cat "$ver_file")"
+}
+
+_check_core() {
+  local group=${1:-}
+  # Allow stack install even if lib missing — that's how it gets installed
+  [[ "$group" == "stack" ]] && return 0
+  if [[ ! -d "$LITESOUP_LIB" ]]; then
+    echo "error: litesoup core not found at $LITESOUP_LIB. Run: litesoup stack install" >&2
+    exit 1
+  fi
+}
+
+_exec_script() {
+  local script=$1; shift
+  if [[ ! -f "$script" ]]; then
+    echo "error: script not found: $script" >&2
+    exit 1
+  fi
+  exec bash "$script" "$@"
+}
+
+# ── Help ──────────────────────────────────────────────────────────────────────
+
+_help_top() {
+  _version
+  cat <<'EOF'
+
+Usage: litesoup <group> <subcommand> [--flags...]
+
+Groups:
+  stack     Install and manage the litesoup stack
+  site      Create and manage WordPress sites
+  harden    Apply per-service security hardening
+  audit     Read-only health and security checks
+
+Run 'litesoup help <group>' for subcommands.
+EOF
+}
+
+_help_stack() {
+  cat <<'EOF'
+Usage: litesoup stack <subcommand> [--flags...]
+
+Subcommands:
+  install   Install the full litesoup stack (Apache, PHP, MariaDB, Redis, ...)
+EOF
+}
+
+_help_site() {
+  cat <<'EOF'
+Usage: litesoup site <subcommand> [--flags...]
+
+Subcommands:
+  create      Create a new WordPress site
+  delete      Delete a site and revoke its TLS cert
+  set-php     Switch a site to a different PHP version
+  set-tier    Retune a site's PHP-FPM pool size (small|medium|large)
+  set-tls     Change a site's TLS mode (letsencrypt|self-signed|none)
+EOF
+}
+
+_help_harden() {
+  cat <<'EOF'
+Usage: litesoup harden <subcommand> [--flags...]
+
+Subcommands:
+  ssh         Harden sshd configuration
+  apache      Harden Apache (security headers, mod_status)
+  php         Harden global PHP ini per installed version
+  firewall    Configure ufw (22/80/443 open, deny rest)
+  fail2ban    Configure fail2ban jails (sshd + apache-auth)
+  upgrades    Configure unattended security upgrades
+EOF
+}
+
+_help_audit() {
+  cat <<'EOF'
+Usage: litesoup audit <subcommand> [--flags...]
+
+Subcommands:
+  system               System metrics and resource usage
+  performance          Performance audit
+  wp-health            WordPress health checks
+  wp-vulnerabilities   WordPress plugin/theme CVE scan
+EOF
+}
+
+_show_help() {
+  local group=${1:-}
+  case "$group" in
+    stack)   _help_stack ;;
+    site)    _help_site ;;
+    harden)  _help_harden ;;
+    audit)   _help_audit ;;
+    "")      _help_top ;;
+    *)
+      echo "error: '$group' is not a litesoup command. Run 'litesoup help'." >&2
+      exit 1
+      ;;
+  esac
+}
+
+# ── Routing ───────────────────────────────────────────────────────────────────
+
+_route_stack() {
+  local sub=${1:-}; shift || true
+  case "$sub" in
+    install) _exec_script "$LITESOUP_LIB/install/install-stack.sh" "$@" ;;
+    "")      _help_stack; exit 0 ;;
+    *)
+      echo "error: '$sub' is not a valid stack command. Run 'litesoup help stack'." >&2
+      exit 1 ;;
+  esac
+}
+
+_route_site() {
+  local sub=${1:-}; shift || true
+  case "$sub" in
+    create|delete|set-php|set-tier|set-tls)
+      _exec_script "$LITESOUP_LIB/site/site-${sub}.sh" "$@" ;;
+    "")  _help_site; exit 0 ;;
+    *)
+      echo "error: '$sub' is not a valid site command. Run 'litesoup help site'." >&2
+      exit 1 ;;
+  esac
+}
+
+_route_harden() {
+  local sub=${1:-}; shift || true
+  case "$sub" in
+    ssh|apache|php|firewall|fail2ban)
+      _exec_script "$LITESOUP_LIB/harden/harden-${sub}.sh" "$@" ;;
+    upgrades)
+      _exec_script "$LITESOUP_LIB/harden/harden-unattended-upgrades.sh" "$@" ;;
+    "")  _help_harden; exit 0 ;;
+    *)
+      echo "error: '$sub' is not a valid harden command. Run 'litesoup help harden'." >&2
+      exit 1 ;;
+  esac
+}
+
+_route_audit() {
+  local sub=${1:-}; shift || true
+  case "$sub" in
+    system)
+      _exec_script "$LITESOUP_LIB/audit/audit-system-metrics.sh" "$@" ;;
+    performance|wp-health|wp-vulnerabilities)
+      _exec_script "$LITESOUP_LIB/audit/audit-${sub}.sh" "$@" ;;
+    "")  _help_audit; exit 0 ;;
+    *)
+      echo "error: '$sub' is not a valid audit command. Run 'litesoup help audit'." >&2
+      exit 1 ;;
+  esac
+}
+
+# ── Entry point ───────────────────────────────────────────────────────────────
+
+group=${1:-}
+
+case "$group" in
+  --version|-v) _version; exit 0 ;;
+  --help|-h)    _show_help; exit 0 ;;
+  help)         _show_help "${2:-}"; exit 0 ;;
+  stack)
+    _check_core "$group"
+    shift
+    _route_stack "$@"
+    ;;
+  site|harden|audit)
+    _check_core "$group"
+    shift
+    "_route_${group}" "$@"
+    ;;
+  "")
+    _help_top; exit 0 ;;
+  *)
+    echo "error: '$group' is not a litesoup command. Run 'litesoup help'." >&2
+    exit 1 ;;
+esac
