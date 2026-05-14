@@ -10,8 +10,14 @@ fi
 
 _version() {
   local ver_file
-  ver_file="$(dirname "$(readlink -f "$0")")/VERSION"
-  echo "litesoup-cli $(cat "$ver_file")"
+  # Prefer the core lib VERSION (installed by install-stack); fall back to
+  # a VERSION next to this script (useful for local dev/clone installs).
+  if [ -f "$LITESOUP_LIB/VERSION" ]; then
+    ver_file="$LITESOUP_LIB/VERSION"
+  else
+    ver_file="$(dirname "$(readlink -f "$0")")/VERSION"
+  fi
+  echo "litesoup-cli $(cat "$ver_file" 2>/dev/null || echo 'unknown')"
 }
 
 _check_core() {
