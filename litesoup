@@ -126,6 +126,7 @@ _show_help() {
   case "$group" in
     stack)   _help_stack ;;
     site)    _help_site ;;
+    backup)  _help_backup ;;
     harden)  _help_harden ;;
     audit)   _help_audit ;;
     "")      _help_top ;;
@@ -192,7 +193,7 @@ _route_site() {
   case "$sub" in
     create|delete|set-php|set-tier|set-tls|set-webhook)
       _exec_script "$LITESOUP_LIB/site/site-${sub}.sh" "$@" ;;
-    "")  _help_site; exit 0 ;;
+    help|--help|-h)  _help_site; exit 0 ;;
     *)
       echo "error: '$sub' is not a valid site command. Run 'litesoup help site'." >&2
       exit 1 ;;
@@ -206,7 +207,7 @@ _route_backup() {
       _exec_script "$LITESOUP_LIB/backup/backup-${sub}.sh" "$@" ;;
     configure)
       _exec_script "$LITESOUP_LIB/backup/backup-install.sh" "$@" ;;
-    "")  _help_backup; exit 0 ;;
+    help|--help|-h)  _help_backup; exit 0 ;;
     *)
       echo "error: '$sub' is not a valid backup command. Run 'litesoup help backup'." >&2
       exit 1 ;;
