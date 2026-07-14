@@ -50,6 +50,7 @@ Usage: litesoup <group> <subcommand> [--flags...]
 Groups:
   stack     Install and manage the litesoup stack
   site      Create and manage WordPress sites
+  backup    Backup and restore sites (local + S3)
   harden    Apply per-service security hardening
   audit     Read-only health and security checks
 
@@ -76,6 +77,18 @@ Subcommands:
   set-php     Switch a site to a different PHP version
   set-tier    Retune a site's PHP-FPM pool size (small|medium|large)
   set-tls     Change a site's TLS mode (letsencrypt|self-signed|none)
+EOF
+}
+
+_help_backup() {
+  cat <<'EOF'
+Usage: litesoup backup <subcommand> [--flags...]
+
+Subcommands:
+  site        Back up a site (files + database) to local or S3
+  restore     Restore a site from a backup
+  list        List available backups for a site
+  configure   Configure backup destinations (S3, email)
 EOF
 }
 
@@ -145,6 +158,20 @@ _route_site() {
   esac
 }
 
+_route_backup() {
+  local sub=${1:-}; shift || true
+  case "$sub" in
+    site|restore|list)
+      _exec_script "$LITESOUP_LIB/backup/backup-${sub}.sh" "$@" ;;
+    configure)
+      _exec_script "$LITESOUP_LIB/backup/backup-install.sh" "$@" ;;
+    "")  _help_backup; exit 0 ;;
+    *)
+      echo "error: '$sub' is not a valid backup command. Run 'litesoup help backup'." >&2
+      exit 1 ;;
+  esac
+}
+
 _route_harden() {
   local sub=${1:-}; shift || true
   case "$sub" in
@@ -186,7 +213,7 @@ case "$group" in
     shift
     _route_stack "$@"
     ;;
-  site|harden|audit)
+  site|backup|harden|audit)
     _check_core "$group"
     shift
     "_route_${group}" "$@"
