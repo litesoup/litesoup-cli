@@ -6,7 +6,7 @@ DEST="/usr/local/bin/litesoup"
 
 # When piped from curl, SCRIPT_DIR is unreliable — download the binary directly.
 # When run from a local clone, prefer the local file if it exists next to this script.
-_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd || echo "")"
+_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-}")" 2>/dev/null && pwd || echo "")"
 if [ -n "$_SCRIPT_DIR" ] && [ -f "$_SCRIPT_DIR/litesoup" ]; then
   install -m 0755 "$_SCRIPT_DIR/litesoup" "$DEST"
 else
