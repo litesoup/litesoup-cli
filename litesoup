@@ -64,6 +64,7 @@ Usage: litesoup stack <subcommand> [--flags...]
 
 Subcommands:
   install   Install the full litesoup stack (Apache, PHP, MariaDB, Redis, ...)
+  update    Update litesoup core via git pull + re-run install-stack.sh
 EOF
 }
 
@@ -139,6 +140,44 @@ _route_stack() {
   local sub=${1:-}; shift || true
   case "$sub" in
     install) _exec_script "$LITESOUP_LIB/install/install-stack.sh" "$@" ;;
+    update)
+      # Find the litesoup repo checkout — try known locations, then search
+      local repo_dir=""
+      for candidate in /opt/litesoup /root/litesoup /home/litesoup/litesoup /usr/lib/litesoup; do
+        if [ -d "${candidate}/.git" ]; then
+          repo_dir="${candidate}"
+          break
+        fi
+      done
+      if [ -z "${repo_dir}" ]; then
+        echo "error: litesoup repo not found. Clone it first:" >&2
+        echo "  git clone https://github.com/litesoup/litesoup.git /opt/litesoup" >&2
+        exit 1
+      fi
+      echo "litesoup: updating repo at ${repo_dir}..."
+      cd "${repo_dir}"
+      git fetch origin
+      # Determine what we're tracking: a tag or a branch
+      local tracked
+      tracked="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'main')"
+      if [ "${tracked}" = "HEAD" ]; then
+        # Detached HEAD — likely a tag checkout. Pull latest tag.
+        local latest_tag
+        latest_tag="$(git tag --list 'v*' --sort=-version:refname | head -1)"
+        if [ -z "${latest_tag}" ]; then
+          echo "error: no tags found and HEAD is detached" >&2
+          exit 1
+        fi
+        echo "litesoup: updating to ${latest_tag}..."
+        git fetch origin tag "${latest_tag}" --no-tags 2>/dev/null || true
+        git checkout "${latest_tag}"
+      else
+        # Tracking a branch — simple pull
+        git pull origin "${tracked}"
+      fi
+      echo "litesoup: running install-stack.sh (idempotent)..."
+      exec bash install/install-stack.sh --skip-hardening "$@"
+      ;;
     "")      _help_stack; exit 0 ;;
     *)
       echo "error: '$sub' is not a valid stack command. Run 'litesoup help stack'." >&2
