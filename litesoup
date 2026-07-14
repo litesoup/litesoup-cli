@@ -74,10 +74,12 @@ Usage: litesoup site <subcommand> [--flags...]
 
 Subcommands:
   create      Create a new WordPress site
+  import      Import an existing WordPress site (git + DB dump)
   delete      Delete a site and revoke its TLS cert
   set-php     Switch a site to a different PHP version
   set-tier    Retune a site's PHP-FPM pool size (small|medium|large)
   set-tls     Change a site's TLS mode (letsencrypt|self-signed|none)
+  set-webhook Set up Git webhook auto-deploy for a site
 EOF
 }
 
@@ -188,7 +190,7 @@ _route_stack() {
 _route_site() {
   local sub=${1:-}; shift || true
   case "$sub" in
-    create|delete|set-php|set-tier|set-tls)
+    create|delete|set-php|set-tier|set-tls|set-webhook)
       _exec_script "$LITESOUP_LIB/site/site-${sub}.sh" "$@" ;;
     "")  _help_site; exit 0 ;;
     *)
