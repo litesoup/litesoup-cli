@@ -50,6 +50,7 @@ Usage: litesoup <group> <subcommand> [--flags...]
 Groups:
   stack     Install and manage the litesoup stack
   user      Provision and list client users
+  status    Quick server health dashboard
   site      Create and manage WordPress sites
   backup    Backup and restore sites (local + S3)
   harden    Apply per-service security hardening
@@ -80,6 +81,24 @@ Subcommands:
 Examples:
   litesoup user create --name=client1 --ssh-key="ssh-ed25519 AAAA..." --domain=client1.com
   litesoup user list
+EOF
+}
+
+_help_status() {
+  cat <<'EOF'
+Usage: litesoup status [--watch=N] [--verbose] [--ascii]
+
+Quick server health dashboard — single-line summary with warning icons.
+
+Options:
+  --watch=N   Refresh every N seconds (like htop, Ctrl-C to stop)
+  --verbose   Show additional detail (traffic, per-pool FPM, connections)
+  --ascii     Use ASCII symbols instead of Unicode icons
+
+Example:
+  litesoup status
+  litesoup status --watch=2
+  litesoup status --verbose
 EOF
 }
 
@@ -141,6 +160,7 @@ _show_help() {
   case "$group" in
     stack)   _help_stack ;;
     user)    _help_user ;;
+    status)  _help_status ;;
     site)    _help_site ;;
     backup)  _help_backup ;;
     harden)  _help_harden ;;
@@ -218,6 +238,12 @@ _route_user() {
   esac
 }
 
+_route_status() {
+  local sub=${1:-}; shift || true
+  # status takes no subcommands — just pass all args to the script
+  _exec_script "$LITESOUP_LIB/audit/audit-status.sh" "$sub" "$@"
+}
+
 _route_site() {
   local sub=${1:-}; shift || true
   case "$sub" in
@@ -285,7 +311,7 @@ case "$group" in
     shift
     _route_stack "$@"
     ;;
-  site|backup|harden|audit|user)
+  site|backup|harden|audit|user|status)
     _check_core "$group"
     shift
     "_route_${group}" "$@"
