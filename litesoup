@@ -49,6 +49,7 @@ Usage: litesoup <group> <subcommand> [--flags...]
 
 Groups:
   stack     Install and manage the litesoup stack
+  user      Provision and list client users
   site      Create and manage WordPress sites
   backup    Backup and restore sites (local + S3)
   harden    Apply per-service security hardening
@@ -65,6 +66,20 @@ Usage: litesoup stack <subcommand> [--flags...]
 Subcommands:
   install   Install the full litesoup stack (Apache, PHP, MariaDB, Redis, ...)
   update    Update litesoup core via git pull + re-run install-stack.sh
+EOF
+}
+
+_help_user() {
+  cat <<'EOF'
+Usage: litesoup user <subcommand> [--flags...]
+
+Subcommands:
+  create      Provision a client user with SSH + SFTP + optional site
+  list        List all managed users
+
+Examples:
+  litesoup user create --name=client1 --ssh-key="ssh-ed25519 AAAA..." --domain=client1.com
+  litesoup user list
 EOF
 }
 
@@ -125,6 +140,7 @@ _show_help() {
   local group=${1:-}
   case "$group" in
     stack)   _help_stack ;;
+    user)    _help_user ;;
     site)    _help_site ;;
     backup)  _help_backup ;;
     harden)  _help_harden ;;
@@ -184,6 +200,20 @@ _route_stack() {
     "")      _help_stack; exit 0 ;;
     *)
       echo "error: '$sub' is not a valid stack command. Run 'litesoup help stack'." >&2
+      exit 1 ;;
+  esac
+}
+
+_route_user() {
+  local sub=${1:-}; shift || true
+  case "$sub" in
+    create|list)
+      _exec_script "$LITESOUP_LIB/site/site-${sub}-user.sh" "$@" ;;
+    help|--help|-h)  _help_user; exit 0 ;;
+    "")
+      _help_user; exit 0 ;;
+    *)
+      echo "error: '$sub' is not a valid user command. Run 'litesoup help user'." >&2
       exit 1 ;;
   esac
 }
@@ -255,7 +285,7 @@ case "$group" in
     shift
     _route_stack "$@"
     ;;
-  site|backup|harden|audit)
+  site|backup|harden|audit|user)
     _check_core "$group"
     shift
     "_route_${group}" "$@"
