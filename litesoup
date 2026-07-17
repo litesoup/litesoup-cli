@@ -207,8 +207,8 @@ _route_stack() {
 _route_user() {
   local sub=${1:-}; shift || true
   case "$sub" in
-    create|list)
-      _exec_script "$LITESOUP_LIB/site/site-${sub}-user.sh" "$@" ;;
+    create) _exec_script "$LITESOUP_LIB/site/site-create-user.sh" "$@" ;;
+    list)   _exec_script "$LITESOUP_LIB/site/site-user-list.sh" "$@" ;;
     help|--help|-h)  _help_user; exit 0 ;;
     "")
       _help_user; exit 0 ;;
