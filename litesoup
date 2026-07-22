@@ -239,15 +239,13 @@ _route_user() {
 }
 
 _route_status() {
-  local sub=${1:-}; shift || true
-  # status takes no subcommands — just pass all args to the script
-  _exec_script "$LITESOUP_LIB/audit/audit-status.sh" "$sub" "$@"
+  _exec_script "$LITESOUP_LIB/audit/audit-status.sh" "$@"
 }
 
 _route_site() {
   local sub=${1:-}; shift || true
   case "$sub" in
-    create|delete|set-php|set-tier|set-tls|set-webhook)
+    create|delete|import|set-php|set-tier|set-tls|set-webhook)
       _exec_script "$LITESOUP_LIB/site/site-${sub}.sh" "$@" ;;
     help|--help|-h)  _help_site; exit 0 ;;
     *)
